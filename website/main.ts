@@ -36,6 +36,20 @@ const reactOutputElement = reactOutput
 type OutputMode = 'html' | 'markdown' | 'react'
 
 let outputMode: OutputMode = 'html'
+let outputUpdateID = 0
+
+async function formatHTML(html: string): Promise<string> {
+  const [{ default: prettier }, { default: prettierPluginHtml }] =
+    await Promise.all([
+      import('prettier/standalone'),
+      import('prettier/plugins/html'),
+    ])
+
+  return await prettier.format(html, {
+    parser: 'html',
+    plugins: [prettierPluginHtml],
+  })
+}
 
 function defineEditorExtension() {
   return union(
@@ -184,7 +198,8 @@ function start() {
     defaultContent,
   })
 
-  function updateOutput() {
+  async function updateOutput() {
+    const updateID = ++outputUpdateID
     const doc = editor.getDocJSON()
     const isReactMode = outputMode === 'react'
 
@@ -192,8 +207,11 @@ function start() {
     reactOutputElement.hidden = !isReactMode
 
     if (outputMode === 'html') {
-      textOutputElement.textContent = renderHTML(doc)
       reactRoot.render(null)
+      const html = await formatHTML(renderHTML(doc))
+      if (updateID === outputUpdateID && outputMode === 'html') {
+        textOutputElement.textContent = html
+      }
     } else if (outputMode === 'markdown') {
       textOutputElement.textContent = renderMarkdown(doc)
       reactRoot.render(null)
@@ -210,7 +228,7 @@ function start() {
       tab.classList.toggle('active', isActive)
       tab.setAttribute('aria-pressed', String(isActive))
     }
-    updateOutput()
+    void updateOutput()
   }
 
   editor.mount(editorRoot)
@@ -226,10 +244,10 @@ function start() {
       }
     })
   }
-  updateOutput()
-  editorRoot.addEventListener('input', updateOutput)
-  editorRoot.addEventListener('keyup', updateOutput)
-  editorRoot.addEventListener('mouseup', updateOutput)
+  void updateOutput()
+  editorRoot.addEventListener('input', () => void updateOutput())
+  editorRoot.addEventListener('keyup', () => void updateOutput())
+  editorRoot.addEventListener('mouseup', () => void updateOutput())
 }
 
 try {
