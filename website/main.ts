@@ -34,9 +34,11 @@ const textOutputElement = textOutput
 const reactOutputElement = reactOutput
 
 type OutputMode = 'html' | 'markdown' | 'react'
+type HighlightLanguage = 'html' | 'markdown'
 
 let outputMode: OutputMode = 'html'
 let outputUpdateID = 0
+let highlighterPromise: ReturnType<typeof createDemoHighlighter> | undefined
 
 async function formatHTML(html: string): Promise<string> {
   const [{ default: prettier }, { default: prettierPluginHtml }] =
@@ -48,6 +50,46 @@ async function formatHTML(html: string): Promise<string> {
   return await prettier.format(html, {
     parser: 'html',
     plugins: [prettierPluginHtml],
+  })
+}
+
+async function createDemoHighlighter() {
+  const [
+    { createHighlighterCore },
+    { createJavaScriptRegexEngine },
+    { default: html },
+    { default: markdown },
+    { default: githubLight },
+    { default: githubDark },
+  ] = await Promise.all([
+    import('shiki/core'),
+    import('shiki/engine/javascript'),
+    import('shiki/langs/html.mjs'),
+    import('shiki/langs/markdown.mjs'),
+    import('shiki/themes/github-light.mjs'),
+    import('shiki/themes/github-dark.mjs'),
+  ])
+
+  return await createHighlighterCore({
+    engine: createJavaScriptRegexEngine(),
+    langs: [html, markdown],
+    themes: [githubLight, githubDark],
+  })
+}
+
+async function highlightCode(
+  code: string,
+  lang: HighlightLanguage,
+): Promise<string> {
+  highlighterPromise ??= createDemoHighlighter()
+  const highlighter = await highlighterPromise
+
+  return highlighter.codeToHtml(code, {
+    lang,
+    themes: {
+      light: 'github-light',
+      dark: 'github-dark',
+    },
   })
 }
 
@@ -209,14 +251,19 @@ function start() {
     if (outputMode === 'html') {
       reactRoot.render(null)
       const html = await formatHTML(renderHTML(doc))
+      const highlightedHTML = await highlightCode(html, 'html')
       if (updateID === outputUpdateID && outputMode === 'html') {
-        textOutputElement.textContent = html
+        textOutputElement.innerHTML = highlightedHTML
       }
     } else if (outputMode === 'markdown') {
-      textOutputElement.textContent = renderMarkdown(doc)
       reactRoot.render(null)
+      const markdown = renderMarkdown(doc)
+      const highlightedMarkdown = await highlightCode(markdown, 'markdown')
+      if (updateID === outputUpdateID && outputMode === 'markdown') {
+        textOutputElement.innerHTML = highlightedMarkdown
+      }
     } else {
-      textOutputElement.textContent = ''
+      textOutputElement.innerHTML = ''
       reactRoot.render(renderReact(doc))
     }
   }

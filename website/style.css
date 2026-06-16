@@ -190,13 +190,31 @@ body {
   height: calc(100% - 2.45rem);
   min-height: calc(35rem - 2.45rem);
   margin: 0;
-  padding: 1rem;
   overflow: auto;
   color: var(--code);
+}
+
+.output .shiki {
+  min-height: calc(35rem - 2.45rem);
+  margin: 0;
+  padding: 1rem;
+  overflow: visible;
+  background: transparent !important;
+  color: var(--code) !important;
   font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
   font-size: 0.82rem;
   line-height: 1.55;
-  white-space: pre-wrap;
+}
+
+.output .shiki code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  font-family: inherit;
+}
+
+.output .line {
+  min-height: 1.55em;
 }
 
 .output-render {
@@ -254,5 +272,16 @@ body {
   .output,
   .output-render {
     min-height: 18rem;
+  }
+
+  .output .shiki {
+    min-height: 18rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .output .shiki,
+  .output .shiki span {
+    color: var(--shiki-dark) !important;
   }
 }
