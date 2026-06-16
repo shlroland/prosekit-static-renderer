@@ -68,8 +68,10 @@
   "scripts": {
     "build": "tsdown && vite build website",
     "bump": "bumpp",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "dev": "vite website",
     "lint": "eslint .",
+    "release": "pnpm check && bumpp --no-push && pnpm publish && git push --follow-tags",
     "fix": "eslint --fix . && prettier --write .",
     "test": "vitest",
     "typecheck": "tsc -b"

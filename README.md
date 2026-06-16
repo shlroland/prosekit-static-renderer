@@ -109,18 +109,31 @@ pnpm build
 
 ## Release
 
-Run the checks, bump the version, then publish:
+For the first manual npm release:
 
 ```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm bump
-pnpm publish
+pnpm release
 ```
 
-`pnpm bump` uses [bumpp](https://github.com/antfu-collective/bumpp) to update the package version and optionally create a commit and tag.
+`pnpm release` runs the full check suite, builds the package, asks
+[bumpp](https://github.com/antfu-collective/bumpp) for the next version,
+creates the version commit and tag locally, publishes to npm, then pushes the
+commit and tag only after `pnpm publish` succeeds.
+
+To bump the version without publishing:
+
+```bash
+pnpm bump
+```
+
+After the package exists on npm, configure npm Trusted Publisher for this
+repository and `release.yml`. Future releases can then use the GitHub Actions
+flow:
+
+1. Merge normal feature and fix commits to `master`.
+2. `release-please` opens or updates a release PR.
+3. Merge the release PR.
+4. The release workflow builds and publishes the package through npm OIDC.
 
 ## License
 

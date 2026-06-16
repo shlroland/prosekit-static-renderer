@@ -12,6 +12,7 @@ export default defineConfig({
     'src/vue.ts',
   ],
   format: ['esm'],
+  sourcemap: false,
   dts: { build: true },
   fixedExtension: false,
 })
