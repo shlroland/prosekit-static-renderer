@@ -3,44 +3,57 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ProseKit YouTube Extension</title>
+    <title>ProseKit Static Renderer</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <div id="app">
       <header class="hero">
-        <p class="eyebrow">prosekit-extension-youtube</p>
-        <h1 class="title">ProseKit YouTube Extension</h1>
+        <p class="eyebrow">prosekit-static-renderer</p>
+        <h1 class="title">ProseKit Static Renderer</h1>
         <p class="subtitle">
-          A tiny ProseKit extension that turns YouTube embed links into inline
-          video players. The document below is fully editable, so try it out.
+          Render ProseKit document JSON to HTML and Markdown without creating a
+          second editor instance.
         </p>
       </header>
 
-      <main class="card">
-        <div class="toolbar">
-          <span class="dot red"></span>
-          <span class="dot yellow"></span>
-          <span class="dot green"></span>
-          <span class="label">editor</span>
-        </div>
-        <div id="editor"></div>
+      <main class="workspace">
+        <section class="panel editor-panel" aria-label="Editor">
+          <div class="toolbar">
+            <span class="label">editor</span>
+          </div>
+          <div id="editor"></div>
+        </section>
+
+        <section class="panel" aria-label="HTML output">
+          <div class="toolbar">
+            <span class="label">html</span>
+          </div>
+          <pre id="html-output" class="output"></pre>
+        </section>
+
+        <section class="panel" aria-label="Markdown output">
+          <div class="toolbar">
+            <span class="label">markdown</span>
+          </div>
+          <pre id="markdown-output" class="output"></pre>
+        </section>
       </main>
 
       <footer class="footer">
         <a href="https://prosekit.dev" target="_blank" rel="noreferrer"
           >ProseKit</a
         >
-        <span class="sep">·</span>
+        <span class="sep">/</span>
         <a
-          href="https://www.npmjs.com/package/prosekit-extension-youtube"
+          href="https://www.npmjs.com/package/prosekit-static-renderer"
           target="_blank"
           rel="noreferrer"
           >npm</a
         >
-        <span class="sep">·</span>
+        <span class="sep">/</span>
         <a
-          href="https://github.com/prosekit/prosekit-extension-template"
+          href="https://github.com/shlroland/prosekit-extension-static-renderer"
           target="_blank"
           rel="noreferrer"
           >GitHub</a

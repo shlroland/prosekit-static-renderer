@@ -1,19 +1,28 @@
 {
-  "name": "prosekit-extension-youtube",
+  "name": "prosekit-static-renderer",
   "type": "module",
-  "version": "1.0.1",
+  "version": "0.1.0",
   "packageManager": "pnpm@11.5.1",
-  "description": "A ProseKit extension for embedding YouTube videos",
+  "description": "Render ProseKit and ProseMirror JSON to HTML, Markdown, and framework elements without an editor instance",
   "author": "ocavue <ocavue@gmail.com>",
   "license": "MIT",
   "funding": "https://github.com/sponsors/ocavue",
-  "homepage": "https://github.com/prosekit/prosekit-extension-template",
+  "homepage": "https://github.com/shlroland/prosekit-extension-static-renderer#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/prosekit/prosekit-extension-template.git"
+    "url": "git+https://github.com/shlroland/prosekit-extension-static-renderer.git"
   },
-  "bugs": "https://github.com/prosekit/prosekit-extension-template/issues",
-  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/shlroland/prosekit-extension-static-renderer/issues"
+  },
+  "keywords": [
+    "prosekit",
+    "prosemirror",
+    "static-renderer",
+    "ssr",
+    "html",
+    "markdown"
+  ],
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -22,6 +31,34 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./html": {
+      "types": "./dist/html.d.ts",
+      "import": "./dist/html.js"
+    },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js"
+    },
+    "./preact": {
+      "types": "./dist/preact.d.ts",
+      "import": "./dist/preact.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./solid": {
+      "types": "./dist/solid.d.ts",
+      "import": "./dist/solid.js"
+    },
+    "./svelte": {
+      "types": "./dist/svelte.d.ts",
+      "import": "./dist/svelte.js"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "import": "./dist/vue.js"
     }
   },
   "files": [
@@ -33,7 +70,6 @@
     "dev": "vite website",
     "lint": "eslint .",
     "fix": "eslint --fix . && prettier --write .",
-    "pretest": "playwright install chromium",
     "test": "vitest",
     "typecheck": "tsc -b"
   },
@@ -41,20 +77,52 @@
     "@prosekit/core": "^0.12.2",
     "@prosekit/pm": "^0.1.17"
   },
+  "peerDependencies": {
+    "preact": ">= 10.11.0",
+    "react": ">= 18.2.0",
+    "react-dom": ">= 18.2.0",
+    "solid-js": ">= 1.7.0",
+    "svelte": ">= 5.0.0",
+    "vue": ">= 3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "preact": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@ocavue/eslint-config": "^4.5.9",
     "@ocavue/tsconfig": "^0.7.1",
     "@prosekit/basic": "^0.9.4",
     "@prosekit/extensions": "^0.17.3",
     "@types/node": "^22.19.11",
-    "@vitest/browser-playwright": "^4.1.8",
-    "diffable-html-snapshot": "^0.2.0",
+    "@types/react": "^19.2.15",
     "eslint": "^10.4.1",
-    "playwright": "^1.60.0",
+    "preact": "^10.29.2",
     "prettier": "^3.8.3",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "solid-js": "^1.9.13",
+    "svelte": "^5.55.7",
     "tsdown": "^0.22.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "vue": "^3.5.34"
   }
 }
