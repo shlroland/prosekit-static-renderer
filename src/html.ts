@@ -6,9 +6,19 @@ import {
   serializeChildrenToHTMLString,
 } from './dom-output-spec.ts'
 import { createRenderer } from './renderer.ts'
-import type { CustomMappingOptions, StaticRendererOptions } from './types.ts'
+import type {
+  CustomMappingOptions,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+} from './types.ts'
 
-export type { StaticRendererOptions, CustomMappingOptions }
+export type {
+  CustomMappingOptions,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+}
 
 /**
  * Create a reusable renderer function that converts ProseMirror document JSON
@@ -40,10 +50,10 @@ export type { StaticRendererOptions, CustomMappingOptions }
  * ```
  */
 export function createHTMLRenderer(
-  options: Omit<StaticRendererOptions, 'content'> & CustomMappingOptions<string>,
+  options: StaticRendererCreateOptions & CustomMappingOptions<string>,
 ): (content: NodeJSON | ProseMirrorNode) => string {
   return createRenderer<string>({
-    extension: options.extension,
+    ...options,
     domOutputSpecToElement: domOutputSpecToHTMLString,
     mapDefinedTypes: {
       doc: ({ children }) => serializeChildrenToHTMLString(children),

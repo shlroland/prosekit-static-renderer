@@ -4,9 +4,21 @@ import type { JSX } from 'solid-js'
 import { createComponent, Dynamic } from 'solid-js/web'
 
 import { createRenderer } from './renderer.ts'
-import type { CustomMappingOptions, DOMOutputSpecArray, DomOutputSpecToElement, StaticRendererOptions } from './types.ts'
+import type {
+  CustomMappingOptions,
+  DOMOutputSpecArray,
+  DomOutputSpecToElement,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+} from './types.ts'
 
-export type { CustomMappingOptions, StaticRendererOptions }
+export type {
+  CustomMappingOptions,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+}
 
 type SolidElement = JSX.Element
 
@@ -173,10 +185,10 @@ const domOutputSpecToSolidElement: DomOutputSpecToElement<SolidElement> = (
  * ```
  */
 export function createSolidRenderer(
-  options: Omit<StaticRendererOptions, 'content'> & CustomMappingOptions<SolidElement>,
+  options: StaticRendererCreateOptions & CustomMappingOptions<SolidElement>,
 ): (content: NodeJSON | ProseMirrorNode) => SolidElement {
   return createRenderer<SolidElement>({
-    extension: options.extension,
+    ...options,
     domOutputSpecToElement: domOutputSpecToSolidElement,
     mapDefinedTypes: {
       doc: ({ children }) => children,

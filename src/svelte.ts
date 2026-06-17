@@ -2,9 +2,21 @@ import type { NodeJSON } from '@prosekit/core'
 import type { ProseMirrorNode } from '@prosekit/pm/model'
 
 import { createRenderer } from './renderer.ts'
-import type { CustomMappingOptions, DOMOutputSpecArray, DomOutputSpecToElement, StaticRendererOptions } from './types.ts'
+import type {
+  CustomMappingOptions,
+  DOMOutputSpecArray,
+  DomOutputSpecToElement,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+} from './types.ts'
 
-export type { CustomMappingOptions, StaticRendererOptions }
+export type {
+  CustomMappingOptions,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+}
 
 /**
  * A node in the Svelte AST tree.
@@ -189,10 +201,10 @@ const domOutputSpecToSvelteElement: DomOutputSpecToElement<SvelteASTNode> = (
  * ```
  */
 export function createSvelteRenderer(
-  options: Omit<StaticRendererOptions, 'content'> & CustomMappingOptions<SvelteASTNode>,
+  options: StaticRendererCreateOptions & CustomMappingOptions<SvelteASTNode>,
 ): (content: NodeJSON | ProseMirrorNode) => SvelteASTNode {
   return createRenderer<SvelteASTNode>({
-    extension: options.extension,
+    ...options,
     domOutputSpecToElement: domOutputSpecToSvelteElement,
     mapDefinedTypes: {
       doc: ({ children }) => children.length === 1 ? children[0] : { tag: 'div', props: {}, children },

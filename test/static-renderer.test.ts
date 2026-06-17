@@ -11,6 +11,7 @@ import { defineSubscript } from '@prosekit/extensions/subscript'
 import { defineSuperscript } from '@prosekit/extensions/superscript'
 import { defineTextAlign } from '@prosekit/extensions/text-align'
 import { defineTextColor } from '@prosekit/extensions/text-color'
+import { Schema } from '@prosekit/pm/model'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -26,6 +27,22 @@ import { renderToSvelteAST } from '../src/svelte.ts'
 import { renderToVueElement } from '../src/vue.ts'
 
 const extension = union(defineBasicExtension())
+const prosemirrorSchema = new Schema({
+  nodes: {
+    doc: { content: 'block+' },
+    paragraph: {
+      content: 'inline*',
+      group: 'block',
+      toDOM: () => ['p', 0],
+    },
+    text: { group: 'inline' },
+  },
+  marks: {
+    strong: {
+      toDOM: () => ['strong', 0],
+    },
+  },
+})
 const extendedExtension = union(
   defineBasicExtension(),
   defineTextColor(),
@@ -264,6 +281,46 @@ describe('renderToHTMLString', () => {
         ],
       }),
     ).toBe('<div class="paragraph"><b>Custom</b></div>')
+  })
+
+  it('renders content using a plain ProseMirror schema', () => {
+    expect(
+      renderToHTMLString({
+        schema: prosemirrorSchema,
+        content: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: 'Plain ' },
+                { type: 'text', marks: [{ type: 'strong' }], text: 'schema' },
+              ],
+            },
+          ],
+        },
+      }),
+    ).toBe('<p>Plain <strong>schema</strong></p>')
+  })
+
+  it('throws when neither extension nor schema is provided', () => {
+    expect(() =>
+      createHTMLRenderer({} as Parameters<typeof createHTMLRenderer>[0]),
+    ).toThrow(
+      '[prosekit error]: createRenderer requires either a ProseKit extension or a ProseMirror schema.',
+    )
+  })
+
+  it('throws when the provided extension does not define a schema', () => {
+    const extensionWithoutSchema = {} as typeof extension
+
+    expect(() =>
+      createHTMLRenderer({
+        extension: extensionWithoutSchema,
+      }),
+    ).toThrow(
+      '[prosekit error]: Extension does not define a schema. Provide a ProseMirror schema or make sure the extension includes at least a document node spec.',
+    )
   })
 })
 

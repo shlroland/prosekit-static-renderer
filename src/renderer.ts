@@ -1,13 +1,16 @@
-import { isProseMirrorNode, type Extension, type NodeJSON } from '@prosekit/core'
+import { isProseMirrorNode, type NodeJSON } from '@prosekit/core'
 import type { ProseMirrorNode, Schema } from '@prosekit/pm/model'
 
-import type { CustomMappingOptions, DomOutputSpecToElement } from './types.ts'
+import type {
+  CustomMappingOptions,
+  DomOutputSpecToElement,
+  StaticRendererSchemaOptions,
+} from './types.ts'
 
 /**
  * @internal
  */
-interface RenderOptions<T> extends CustomMappingOptions<T> {
-  extension: Extension
+type RenderOptions<T> = CustomMappingOptions<T> & StaticRendererSchemaOptions & {
   domOutputSpecToElement: DomOutputSpecToElement<T>
   mapDefinedTypes: {
     doc: (props: { node: ProseMirrorNode; children: T[] }) => T
@@ -25,7 +28,6 @@ export function createRenderer<T>(options: RenderOptions<T>): (
   content: NodeJSON | ProseMirrorNode,
 ) => T {
   const {
-    extension,
     domOutputSpecToElement,
     mapDefinedTypes,
     nodeMapping = {},
@@ -34,8 +36,7 @@ export function createRenderer<T>(options: RenderOptions<T>): (
     unhandledMark,
   } = options
 
-  // Get schema from extension via facet tree
-  const schema = getSchema(extension)
+  const schema = getSchema(options)
 
   function renderNode(node: ProseMirrorNode, parent?: ProseMirrorNode): T {
     const name = node.type.name
@@ -139,15 +140,21 @@ export function createRenderer<T>(options: RenderOptions<T>): (
 }
 
 /**
- * Extract the ProseMirror schema from an extension.
+ * Extract the ProseMirror schema from explicit options or an extension.
  *
  * @internal
  */
-function getSchema(extension: Extension): Schema {
-  const schema = extension.schema
+function getSchema(options: StaticRendererSchemaOptions): Schema {
+  const schema = options.schema ?? options.extension?.schema
   if (!schema) {
+    if (!options.extension) {
+      throw new Error(
+        '[prosekit error]: createRenderer requires either a ProseKit extension or a ProseMirror schema.',
+      )
+    }
+
     throw new Error(
-      '[prosekit error]: Extension does not define a schema. Make sure the extension includes at least a document node spec.',
+      '[prosekit error]: Extension does not define a schema. Provide a ProseMirror schema or make sure the extension includes at least a document node spec.',
     )
   }
   return schema

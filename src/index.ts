@@ -21,5 +21,7 @@ export type {
   MarkProps,
   NodeMapping,
   NodeProps,
+  StaticRendererCreateOptions,
   StaticRendererOptions,
+  StaticRendererSchemaOptions,
 } from './types.ts'

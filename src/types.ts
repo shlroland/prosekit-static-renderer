@@ -1,27 +1,57 @@
 import type { Extension, NodeJSON } from '@prosekit/core'
-import type { Attrs, DOMOutputSpec, Mark, ProseMirrorNode } from '@prosekit/pm/model'
+import type { Attrs, DOMOutputSpec, Mark, ProseMirrorNode, Schema } from '@prosekit/pm/model'
+
+/**
+ * Options for providing the ProseMirror schema used by the static renderer.
+ */
+export type StaticRendererSchemaOptions =
+  | {
+      /**
+       * The ProseKit extension to use for building the schema.
+       */
+      extension: Extension
+
+      /**
+       * The ProseMirror schema to use for parsing JSON content and rendering
+       * schema `toDOM` specs. Takes precedence over `extension.schema` when
+       * both are provided.
+       */
+      schema?: Schema
+    }
+  | {
+      /**
+       * The ProseKit extension to use for building the schema.
+       */
+      extension?: Extension
+
+      /**
+       * The ProseMirror schema to use for parsing JSON content and rendering
+       * schema `toDOM` specs.
+       */
+      schema: Schema
+    }
 
 /**
  * Options for the static renderer.
  */
-export interface StaticRendererOptions {
+export type StaticRendererCreateOptions = StaticRendererSchemaOptions & {
   /**
-   * The extension to use for building the schema.
+   * The Document object to use for DOM operations. If not provided, defaults
+   * to the current browser's document object. Useful for server-side rendering.
    */
-  extension: Extension
+  document?: Document
+}
 
+/**
+ * Options for one-shot static rendering.
+ */
+export type StaticRendererOptions = StaticRendererCreateOptions & {
   /**
    * The content to render. Can be a ProseMirror node or a JSON object.
    * Required for one-shot render functions, optional for create* functions
    * that return a reusable render function.
    */
   content?: NodeJSON | ProseMirrorNode
-
-  /**
-   * The Document object to use for DOM operations. If not provided, defaults
-   * to the current browser's document object. Useful for server-side rendering.
-   */
-  document?: Document
 }
 
 /**

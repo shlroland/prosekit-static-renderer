@@ -7,10 +7,17 @@ import type {
   CustomMappingOptions,
   DOMOutputSpecArray,
   DomOutputSpecToElement,
+  StaticRendererCreateOptions,
   StaticRendererOptions,
+  StaticRendererSchemaOptions,
 } from './types.ts'
 
-export type { CustomMappingOptions, StaticRendererOptions }
+export type {
+  CustomMappingOptions,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+}
 
 type VueElement = string | VNode
 
@@ -158,10 +165,10 @@ const domOutputSpecToVueElement: DomOutputSpecToElement<VueElement> = (
  * ```
  */
 export function createVueRenderer(
-  options: Omit<StaticRendererOptions, 'content'> & CustomMappingOptions<VueElement>,
+  options: StaticRendererCreateOptions & CustomMappingOptions<VueElement>,
 ): (content: NodeJSON | ProseMirrorNode) => VueElement {
   return createRenderer<VueElement>({
-    extension: options.extension,
+    ...options,
     domOutputSpecToElement: domOutputSpecToVueElement,
     mapDefinedTypes: {
       doc: ({ children }) => h(Fragment, null, children),

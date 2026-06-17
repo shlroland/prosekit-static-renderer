@@ -7,10 +7,17 @@ import type {
   CustomMappingOptions,
   MarkMapping,
   NodeMapping,
+  StaticRendererCreateOptions,
   StaticRendererOptions,
+  StaticRendererSchemaOptions,
 } from './types.ts'
 
-export type { StaticRendererOptions, CustomMappingOptions }
+export type {
+  CustomMappingOptions,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+}
 
 /**
  * Default node mappings for Markdown rendering.
@@ -190,7 +197,7 @@ const defaultMarkdownMarkMapping: MarkMapping<string> = {
  * ```
  */
 export function createMarkdownRenderer(
-  options: Omit<StaticRendererOptions, 'content'> & CustomMappingOptions<string>,
+  options: StaticRendererCreateOptions & CustomMappingOptions<string>,
 ): (content: NodeJSON | ProseMirrorNode) => string {
   return createHTMLRenderer({
     ...options,

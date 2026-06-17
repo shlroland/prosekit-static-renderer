@@ -3,9 +3,21 @@ import type { ProseMirrorNode } from '@prosekit/pm/model'
 import { createElement, cloneElement, Fragment, type ReactElement, type ReactNode } from 'react'
 
 import { createRenderer } from './renderer.ts'
-import type { CustomMappingOptions, DOMOutputSpecArray, DomOutputSpecToElement, StaticRendererOptions } from './types.ts'
+import type {
+  CustomMappingOptions,
+  DOMOutputSpecArray,
+  DomOutputSpecToElement,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+} from './types.ts'
 
-export type { CustomMappingOptions, StaticRendererOptions }
+export type {
+  CustomMappingOptions,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+}
 
 /**
  * Map HTML attribute names to React prop names.
@@ -201,10 +213,10 @@ const domOutputSpecToReactElement: DomOutputSpecToElement<ReactNode> = (
  * ```
  */
 export function createReactRenderer(
-  options: Omit<StaticRendererOptions, 'content'> & CustomMappingOptions<ReactNode>,
+  options: StaticRendererCreateOptions & CustomMappingOptions<ReactNode>,
 ): (content: NodeJSON | ProseMirrorNode) => ReactNode {
   return createRenderer<ReactNode>({
-    extension: options.extension,
+    ...options,
     domOutputSpecToElement: domOutputSpecToReactElement,
     mapDefinedTypes: {
       doc: ({ children }) => createElement(Fragment, null, ...children),

@@ -3,9 +3,21 @@ import type { ProseMirrorNode } from '@prosekit/pm/model'
 import { Fragment, h, type VNode } from 'preact'
 
 import { createRenderer } from './renderer.ts'
-import type { CustomMappingOptions, DOMOutputSpecArray, DomOutputSpecToElement, StaticRendererOptions } from './types.ts'
+import type {
+  CustomMappingOptions,
+  DOMOutputSpecArray,
+  DomOutputSpecToElement,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+} from './types.ts'
 
-export type { CustomMappingOptions, StaticRendererOptions }
+export type {
+  CustomMappingOptions,
+  StaticRendererCreateOptions,
+  StaticRendererOptions,
+  StaticRendererSchemaOptions,
+}
 
 /**
  * Map HTML attribute names to Preact prop names.
@@ -155,10 +167,10 @@ const domOutputSpecToPreactElement: DomOutputSpecToElement<VNode<any>> = (
  * ```
  */
 export function createPreactRenderer(
-  options: Omit<StaticRendererOptions, 'content'> & CustomMappingOptions<VNode>,
+  options: StaticRendererCreateOptions & CustomMappingOptions<VNode>,
 ): (content: NodeJSON | ProseMirrorNode) => VNode {
   return createRenderer<VNode>({
-    extension: options.extension,
+    ...options,
     domOutputSpecToElement: domOutputSpecToPreactElement,
     mapDefinedTypes: {
       doc: ({ children }) => h(Fragment, null, children),
