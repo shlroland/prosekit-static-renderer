@@ -10,13 +10,14 @@ import type {
 /**
  * @internal
  */
-type RenderOptions<T> = CustomMappingOptions<T> & StaticRendererSchemaOptions & {
-  domOutputSpecToElement: DomOutputSpecToElement<T>
-  mapDefinedTypes: {
-    doc: (props: { node: ProseMirrorNode; children: T[] }) => T
-    text: (props: { node: ProseMirrorNode }) => T
+type RenderOptions<T> = CustomMappingOptions<T> &
+  StaticRendererSchemaOptions & {
+    domOutputSpecToElement: DomOutputSpecToElement<T>
+    mapDefinedTypes: {
+      doc: (props: { node: ProseMirrorNode; children: T[] }) => T
+      text: (props: { node: ProseMirrorNode }) => T
+    }
   }
-}
 
 /**
  * Create a renderer function that walks a ProseMirror node tree and renders
@@ -24,9 +25,9 @@ type RenderOptions<T> = CustomMappingOptions<T> & StaticRendererSchemaOptions & 
  *
  * @internal
  */
-export function createRenderer<T>(options: RenderOptions<T>): (
-  content: NodeJSON | ProseMirrorNode,
-) => T {
+export function createRenderer<T>(
+  options: RenderOptions<T>,
+): (content: NodeJSON | ProseMirrorNode) => T {
   const {
     domOutputSpecToElement,
     mapDefinedTypes,
@@ -90,7 +91,11 @@ export function createRenderer<T>(options: RenderOptions<T>): (
     node.forEach((child) => children.push(renderNode(child, node)))
 
     return render(
-      children.length > 0 ? (children.length === 1 ? children[0] : children) : undefined,
+      children.length > 0
+        ? children.length === 1
+          ? children[0]
+          : children
+        : undefined,
     )
   }
 

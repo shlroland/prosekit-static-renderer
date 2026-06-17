@@ -11,7 +11,8 @@ import { defineSubscript } from '@prosekit/extensions/subscript'
 import { defineSuperscript } from '@prosekit/extensions/superscript'
 import { defineTextAlign } from '@prosekit/extensions/text-align'
 import { defineTextColor } from '@prosekit/extensions/text-color'
-import { Schema } from '@prosekit/pm/model'
+import { type DOMOutputSpec, Schema } from '@prosekit/pm/model'
+import { isValidElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
@@ -75,6 +76,46 @@ const prosemirrorSchema = new Schema({
     strong: {
       toDOM: () => ['strong', 0],
     },
+  },
+})
+const attributeSchema = new Schema({
+  nodes: {
+    doc: { content: 'block+' },
+    label: {
+      content: 'inline*',
+      group: 'block',
+      attrs: {
+        for: { default: 'field-id' },
+        href: { default: 'javascript:alert(1)' },
+      },
+      toDOM: (node) => [
+        'label',
+        {
+          class: 'field-label',
+          for: String(node.attrs.for),
+          href: String(node.attrs.href),
+          onclick: 'alert(1)',
+          readonly: '',
+          tabindex: '2',
+          'data-role': 'label',
+        },
+        0,
+      ],
+    },
+    svg: {
+      group: 'block',
+      toDOM: () => [
+        'svg',
+        { viewbox: '0 0 16 16', 'stroke-width': '2' },
+        ['path', { d: 'M0 0', 'clip-rule': 'evenodd' }],
+      ],
+    },
+    domNode: {
+      group: 'block',
+      toDOM: () =>
+        ({ nodeType: 1, nodeName: 'SPAN' }) as unknown as DOMOutputSpec,
+    },
+    text: { group: 'inline' },
   },
 })
 const extendedExtension = union(
@@ -332,6 +373,44 @@ describe('renderToHTMLString', () => {
     )
   })
 
+  it('removes dangerous URL and event attributes by default', () => {
+    expect(
+      renderToHTMLString({
+        schema: attributeSchema,
+        content: {
+          type: 'doc',
+          content: [
+            {
+              type: 'label',
+              content: [{ type: 'text', text: 'Field' }],
+            },
+          ],
+        },
+      }),
+    ).toBe(
+      '<label class="field-label" for="field-id" readonly="" tabindex="2" data-role="label">Field</label>',
+    )
+  })
+
+  it('allows custom URL sanitizers to override the default URL policy', () => {
+    expect(
+      renderToHTMLString({
+        schema: attributeSchema,
+        sanitizeURL: (url) => url,
+        content: {
+          type: 'doc',
+          content: [
+            {
+              type: 'label',
+              attrs: { href: 'ipfs://example' },
+              content: [{ type: 'text', text: 'Field' }],
+            },
+          ],
+        },
+      }),
+    ).toContain('href="ipfs://example"')
+  })
+
   it('supports reusable renderers and custom mappings', () => {
     const render = createHTMLRenderer({
       extension,
@@ -397,6 +476,20 @@ describe('renderToHTMLString', () => {
       '[prosekit error]: Extension does not define a schema. Provide a ProseMirror schema or make sure the extension includes at least a document node spec.',
     )
   })
+
+  it('throws a clear error when toDOM returns a DOM node', () => {
+    expect(() =>
+      renderToHTMLString({
+        schema: attributeSchema,
+        content: {
+          type: 'doc',
+          content: [{ type: 'domNode' }],
+        },
+      }),
+    ).toThrow(
+      'Static renderers support SSR-friendly DOMOutputSpec strings and arrays only',
+    )
+  })
 })
 
 describe('renderToMarkdown', () => {
@@ -439,6 +532,108 @@ describe('renderToMarkdown', () => {
     expect(markdown).toContain('$$\nE = mc^2\n$$')
     expect(markdown).toContain('$x + y$')
   })
+
+  it('handles markdown escaping for code, lists, links, images, and tables', () => {
+    const markdown = renderToMarkdown({
+      extension: extendedExtension,
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'text', marks: [{ type: 'code' }], text: 'tick ` here' },
+              {
+                type: 'text',
+                marks: [
+                  {
+                    type: 'link',
+                    attrs: { href: 'javascript:alert(1)' },
+                  },
+                ],
+                text: 'bad [link]',
+              },
+            ],
+          },
+          {
+            type: 'list',
+            attrs: {
+              kind: 'bullet',
+              order: null,
+              checked: false,
+              collapsed: false,
+            },
+            content: [
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'First paragraph' }],
+              },
+              {
+                type: 'paragraph',
+                content: [{ type: 'text', text: 'Second paragraph' }],
+              },
+            ],
+          },
+          {
+            type: 'table',
+            content: [
+              {
+                type: 'tableRow',
+                content: [
+                  {
+                    type: 'tableHeaderCell',
+                    content: [
+                      {
+                        type: 'paragraph',
+                        content: [{ type: 'text', text: 'Feature | Name' }],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: 'tableRow',
+                content: [
+                  {
+                    type: 'tableCell',
+                    content: [
+                      {
+                        type: 'paragraph',
+                        content: [
+                          { type: 'text', text: 'Line 1' },
+                          { type: 'hardBreak' },
+                          { type: 'text', text: 'Line | 2' },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'codeBlock',
+            attrs: { language: 'md' },
+            content: [{ type: 'text', text: '``` inside' }],
+          },
+          {
+            type: 'image',
+            attrs: {
+              alt: 'Image [alt]',
+              src: 'javascript:alert(1)',
+            },
+          },
+        ],
+      },
+    })
+
+    expect(markdown).toContain('``tick ` here``bad \\[link\\]')
+    expect(markdown).toContain('- First paragraph\n\n  Second paragraph')
+    expect(markdown).toContain(String.raw`| Feature \| Name |`)
+    expect(markdown).toContain(String.raw`| Line 1<br>Line \| 2 |`)
+    expect(markdown).toContain('````md\n``` inside\n````')
+    expect(markdown).toContain('![]()')
+  })
 })
 
 describe('framework renderers', () => {
@@ -477,6 +672,75 @@ describe('framework renderers', () => {
     expect(html).toContain('--prosemirror-flat-list-order:1')
     expect(html).toContain('<th><p style="text-align:left">Feature</p></th>')
     expect(html).toContain('prosemirror-math-block')
+  })
+
+  it('maps React attributes and removes unsafe static attributes', () => {
+    const element = renderToReactElement({
+      schema: attributeSchema,
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'label',
+            content: [{ type: 'text', text: 'Field' }],
+          },
+          { type: 'svg' },
+        ],
+      },
+    })
+
+    expect(isValidElement(element)).toBe(true)
+
+    const root = element as ReactElement<{
+      children: Array<ReactElement<Record<string, unknown>>>
+    }>
+    const [label, svg] = root.props.children
+    const path = svg.props.children as ReactElement<Record<string, unknown>>
+
+    expect(label.props).toMatchObject({
+      className: 'field-label',
+      htmlFor: 'field-id',
+      readOnly: true,
+      tabIndex: 2,
+      'data-role': 'label',
+    })
+    expect(label.props.href).toBeUndefined()
+    expect(label.props.onclick).toBeUndefined()
+    expect(svg.props).toMatchObject({
+      viewBox: '0 0 16 16',
+      strokeWidth: '2',
+    })
+    expect(path.props.clipRule).toBe('evenodd')
+  })
+
+  it('removes unsafe static attributes from non-React framework renderers', () => {
+    const ast = renderToSvelteAST({
+      schema: attributeSchema,
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'label',
+            content: [{ type: 'text', text: 'Field' }],
+          },
+        ],
+      },
+    })
+
+    expect(ast).toMatchObject({
+      props: {
+        class: 'field-label',
+        for: 'field-id',
+        'data-role': 'label',
+      },
+      tag: 'label',
+    })
+    if (typeof ast !== 'object') {
+      throw new TypeError('Expected a Svelte AST element')
+    }
+
+    expect(ast.props.href).toBeUndefined()
+    expect(ast.props.onclick).toBeUndefined()
   })
 })
 
@@ -534,13 +798,19 @@ describe('ProseKit extension compatibility', () => {
     expect(html).toContain('<mark>highlight</mark>')
     expect(html).toContain('<sub>sub</sub>')
     expect(html).toContain('<sup>sup</sup>')
-    expect(html).toContain('<blockquote><p style="text-align:left">Quoted content</p></blockquote>')
+    expect(html).toContain(
+      '<blockquote><p style="text-align:left">Quoted content</p></blockquote>',
+    )
     expect(html).toContain('prosemirror-flat-list')
     expect(html).toContain('Ordered item')
-    expect(html).toContain('<img src="https://static.photos/yellow/640x360/42" width="48" height="48"/>')
+    expect(html).toContain(
+      '<img src="https://static.photos/yellow/640x360/42" width="48" height="48"/>',
+    )
     expect(html).toContain('<div class="prosekit-horizontal-rule"><hr/></div>')
     expect(html).toContain('<table>')
-    expect(html).toContain('<pre data-language="ts"><code class="language-ts">const answer = 42</code></pre>')
+    expect(html).toContain(
+      '<pre data-language="ts"><code class="language-ts">const answer = 42</code></pre>',
+    )
     expect(html).toContain('data-mention="user"')
     expect(html).toContain('prosekit-page-break')
     expect(html).toContain('prosemirror-math-inline')

@@ -2,7 +2,7 @@ import type { NodeJSON } from '@prosekit/core'
 import type { ProseMirrorNode } from '@prosekit/pm/model'
 
 import {
-  domOutputSpecToHTMLString,
+  createDOMOutputSpecToHTMLString,
   serializeChildrenToHTMLString,
 } from './dom-output-spec.ts'
 import { createRenderer } from './renderer.ts'
@@ -11,6 +11,9 @@ import type {
   StaticRendererCreateOptions,
   StaticRendererOptions,
   StaticRendererSchemaOptions,
+  StaticRendererSecurityOptions,
+  URLSanitizer,
+  URLSanitizerContext,
 } from './types.ts'
 
 export type {
@@ -18,6 +21,9 @@ export type {
   StaticRendererCreateOptions,
   StaticRendererOptions,
   StaticRendererSchemaOptions,
+  StaticRendererSecurityOptions,
+  URLSanitizer,
+  URLSanitizerContext,
 }
 
 /**
@@ -54,7 +60,9 @@ export function createHTMLRenderer(
 ): (content: NodeJSON | ProseMirrorNode) => string {
   return createRenderer<string>({
     ...options,
-    domOutputSpecToElement: domOutputSpecToHTMLString,
+    domOutputSpecToElement: createDOMOutputSpecToHTMLString({
+      sanitizeURL: options.sanitizeURL,
+    }),
     mapDefinedTypes: {
       doc: ({ children }) => serializeChildrenToHTMLString(children),
       text: ({ node }) => escapeText(node.text ?? ''),

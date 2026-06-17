@@ -4,6 +4,11 @@ import type { JSX } from 'solid-js'
 import { createComponent, Dynamic } from 'solid-js/web'
 
 import { createRenderer } from './renderer.ts'
+import {
+  filterStaticAttrs,
+  stringifyStaticAttrValue,
+  unsupportedDOMOutputSpecError,
+} from './shared/attrs.ts'
 import type {
   CustomMappingOptions,
   DOMOutputSpecArray,
@@ -11,6 +16,9 @@ import type {
   StaticRendererCreateOptions,
   StaticRendererOptions,
   StaticRendererSchemaOptions,
+  StaticRendererSecurityOptions,
+  URLSanitizer,
+  URLSanitizerContext,
 } from './types.ts'
 
 export type {
@@ -18,6 +26,9 @@ export type {
   StaticRendererCreateOptions,
   StaticRendererOptions,
   StaticRendererSchemaOptions,
+  StaticRendererSecurityOptions,
+  URLSanitizer,
+  URLSanitizerContext,
 }
 
 type SolidElement = JSX.Element
@@ -27,22 +38,30 @@ type SolidElement = JSX.Element
  */
 function mapAttrsToProps(
   attrs?: Record<string, any>,
+  tag = '',
+  sanitizeURL?: URLSanitizer,
 ): Record<string, any> {
-  if (!attrs) {
+  const filteredAttrs = filterStaticAttrs(attrs, {
+    tag,
+    target: 'solid',
+    sanitizeURL,
+  })
+
+  if (Object.keys(filteredAttrs).length === 0) {
     return {}
   }
 
   const result: Record<string, any> = {}
 
-  for (const [name, value] of Object.entries(attrs)) {
+  for (const [name, value] of Object.entries(filteredAttrs)) {
     if (value == null) continue
 
     if (name === 'class') {
-      result.class = String(value)
+      result.class = stringifyStaticAttrValue(value)
     } else if (name === 'style' && typeof value === 'string') {
       result.style = value
     } else {
-      result[name] = String(value)
+      result[name] = stringifyStaticAttrValue(value)
     }
   }
 
@@ -70,96 +89,118 @@ function createSolidElement(
 /**
  * Convert a ProseMirror DOMOutputSpec to a Solid element renderer.
  */
-const domOutputSpecToSolidElement: DomOutputSpecToElement<SolidElement> = (
-  spec,
-) => {
-  if (typeof spec === 'string') {
-    return () => spec
-  }
+function createDOMOutputSpecToSolidElement(
+  options: { sanitizeURL?: URLSanitizer } = {},
+): DomOutputSpecToElement<SolidElement> {
+  const domOutputSpecToSolidElement: DomOutputSpecToElement<SolidElement> = (
+    spec,
+  ) => {
+    if (typeof spec === 'string') {
+      return () => spec
+    }
 
-  if (typeof spec === 'object' && 'length' in spec) {
-    let [otag, attrs, children, ...rest] = spec as DOMOutputSpecArray
-    let tag = otag
+    if (typeof spec === 'object' && spec && 'length' in spec) {
+      let [otag, attrs, children, ...rest] = spec as DOMOutputSpecArray
+      let tag = otag
 
-    // Handle namespaced tags
-    const parts = tag.split(' ')
-    if (parts.length > 1) {
-      tag = parts[1]
-      if (attrs === undefined) {
-        attrs = { xmlns: parts[0] }
-      } else if (attrs === 0) {
-        attrs = { xmlns: parts[0] }
-        children = 0
-      } else if (typeof attrs === 'object' && !Array.isArray(attrs)) {
-        attrs = { ...attrs, xmlns: parts[0] }
+      // Handle namespaced tags
+      const parts = tag.split(' ')
+      if (parts.length > 1) {
+        tag = parts[1]
+        if (attrs === undefined) {
+          attrs = { xmlns: parts[0] }
+        } else if (attrs === 0) {
+          attrs = { xmlns: parts[0] }
+          children = 0
+        } else if (typeof attrs === 'object' && !Array.isArray(attrs)) {
+          attrs = { ...attrs, xmlns: parts[0] }
+        }
       }
-    }
 
-    // Self-closing tag
-    if (attrs === undefined) {
-      return () => createSolidElement(tag, mapAttrsToProps(undefined))
-    }
+      // Self-closing tag
+      if (attrs === undefined) {
+        return () =>
+          createSolidElement(
+            tag,
+            mapAttrsToProps(undefined, tag, options.sanitizeURL),
+          )
+      }
 
-    // No attributes, content placeholder is 0
-    if (attrs === 0) {
-      return (child) => createSolidElement(tag, mapAttrsToProps(undefined), child)
-    }
+      // No attributes, content placeholder is 0
+      if (attrs === 0) {
+        return (child) =>
+          createSolidElement(
+            tag,
+            mapAttrsToProps(undefined, tag, options.sanitizeURL),
+            child,
+          )
+      }
 
-    // Object attrs
-    if (typeof attrs === 'object') {
-      // attrs is actually an array (child element spec)
-      if (Array.isArray(attrs)) {
-        const renderChild = domOutputSpecToSolidElement(attrs as DOMOutputSpecArray)
+      // Object attrs
+      if (typeof attrs === 'object') {
+        // attrs is actually an array (child element spec)
+        if (Array.isArray(attrs)) {
+          const renderChild = domOutputSpecToSolidElement(
+            attrs as DOMOutputSpecArray,
+          )
 
-        if (children === undefined) {
+          if (children === undefined) {
+            return (child) =>
+              createSolidElement(
+                tag,
+                mapAttrsToProps(undefined, tag, options.sanitizeURL),
+                renderChild(child),
+              )
+          }
+          if (children === 0) {
+            return (child) =>
+              createSolidElement(
+                tag,
+                mapAttrsToProps(undefined, tag, options.sanitizeURL),
+                renderChild(child),
+              )
+          }
           return (child) =>
             createSolidElement(
               tag,
-              mapAttrsToProps(undefined),
+              mapAttrsToProps(undefined, tag, options.sanitizeURL),
               renderChild(child),
+              ...[children]
+                .concat(rest)
+                .map((s) => domOutputSpecToSolidElement(s)(child)),
+            )
+        }
+
+        // attrs is an attributes object
+        if (children === undefined) {
+          return () =>
+            createSolidElement(
+              tag,
+              mapAttrsToProps(attrs, tag, options.sanitizeURL),
             )
         }
         if (children === 0) {
           return (child) =>
             createSolidElement(
               tag,
-              mapAttrsToProps(undefined),
-              renderChild(child),
+              mapAttrsToProps(attrs, tag, options.sanitizeURL),
+              child,
             )
         }
         return (child) =>
           createSolidElement(
             tag,
-            mapAttrsToProps(undefined),
-            renderChild(child),
+            mapAttrsToProps(attrs, tag, options.sanitizeURL),
             ...[children]
               .concat(rest)
               .map((s) => domOutputSpecToSolidElement(s)(child)),
           )
       }
-
-      // attrs is an attributes object
-      if (children === undefined) {
-        return () => createSolidElement(tag, mapAttrsToProps(attrs))
-      }
-      if (children === 0) {
-        return (child) => createSolidElement(tag, mapAttrsToProps(attrs), child)
-      }
-      return (child) =>
-        createSolidElement(
-          tag,
-          mapAttrsToProps(attrs),
-          ...[children]
-            .concat(rest)
-            .map((s) => domOutputSpecToSolidElement(s)(child)),
-        )
     }
-  }
 
-  throw new Error(
-    '[prosekit error]: Unsupported DOMOutputSpec type. Check the `toDOM` method output or implement a custom nodeMapping.',
-    { cause: spec },
-  )
+    throw unsupportedDOMOutputSpecError(spec)
+  }
+  return domOutputSpecToSolidElement
 }
 
 /**
@@ -189,7 +230,9 @@ export function createSolidRenderer(
 ): (content: NodeJSON | ProseMirrorNode) => SolidElement {
   return createRenderer<SolidElement>({
     ...options,
-    domOutputSpecToElement: domOutputSpecToSolidElement,
+    domOutputSpecToElement: createDOMOutputSpecToSolidElement({
+      sanitizeURL: options.sanitizeURL,
+    }),
     mapDefinedTypes: {
       doc: ({ children }) => children,
       text: ({ node }) => node.text ?? '',

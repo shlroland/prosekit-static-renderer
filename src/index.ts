@@ -24,4 +24,7 @@ export type {
   StaticRendererCreateOptions,
   StaticRendererOptions,
   StaticRendererSchemaOptions,
+  StaticRendererSecurityOptions,
+  URLSanitizer,
+  URLSanitizerContext,
 } from './types.ts'

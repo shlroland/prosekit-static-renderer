@@ -1,4 +1,16 @@
-import type { DOMOutputSpecArray, DomOutputSpecToElement } from './types.ts'
+import {
+  filterStaticAttrs,
+  unsupportedDOMOutputSpecError,
+} from './shared/attrs.ts'
+import type {
+  DOMOutputSpecArray,
+  DomOutputSpecToElement,
+  URLSanitizer,
+} from './types.ts'
+
+interface HTMLDomOutputSpecOptions {
+  sanitizeURL?: URLSanitizer
+}
 
 /**
  * HTML elements that cannot be self-closing and must always have a closing tag.
@@ -19,7 +31,10 @@ const NON_SELF_CLOSING_TAGS = new Set([
  * Escape text for HTML text content.
  */
 function escapeHTML(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
 }
 
 /**
@@ -34,11 +49,19 @@ function escapeHTMLAttribute(value: string): string {
  */
 export function serializeAttrsToHTMLString(
   attrs: Record<string, any> | undefined | null,
+  tag = '',
+  options: HTMLDomOutputSpecOptions = {},
 ): string {
-  const output = Object.entries(attrs || {})
+  const filteredAttrs = filterStaticAttrs(attrs, {
+    tag,
+    target: 'html',
+    sanitizeURL: options.sanitizeURL,
+  })
+  const output = Object.entries(filteredAttrs)
     .filter(([, value]) => value != null)
     .map(
-      ([key, value]) => `${key.split(' ').at(-1)}="${escapeHTMLAttribute(String(value))}"`,
+      ([key, value]) =>
+        `${key.split(' ').at(-1)}="${escapeHTMLAttribute(String(value))}"`,
     )
     .join(' ')
 
@@ -70,76 +93,82 @@ export function serializeChildrenToHTMLString(
  * const html = render('Hello') // => '<div class="foo">Hello</div>'
  * ```
  */
-export const domOutputSpecToHTMLString: DomOutputSpecToElement<string> = (
-  spec,
-) => {
-  if (typeof spec === 'string') {
-    return () => escapeHTML(spec)
-  }
-
-  if (typeof spec === 'object' && 'length' in spec) {
-    const [otag, attrs, children, ...rest] = spec as DOMOutputSpecArray
-    let tag = otag
-
-    // Handle namespaced tags like "http://www.w3.org/2000/svg svg"
-    const parts = tag.split(' ')
-    if (parts.length > 1) {
-      tag = `${parts[1]} xmlns="${parts[0]}"`
+export function createDOMOutputSpecToHTMLString(
+  options: HTMLDomOutputSpecOptions = {},
+): DomOutputSpecToElement<string> {
+  const domOutputSpecToHTMLString: DomOutputSpecToElement<string> = (spec) => {
+    if (typeof spec === 'string') {
+      return () => escapeHTML(spec)
     }
 
-    // Self-closing tag: no attrs
-    if (attrs === undefined) {
-      return () => `<${tag}/>`
-    }
+    if (typeof spec === 'object' && spec && 'length' in spec) {
+      const [otag, attrs, children, ...rest] = spec as DOMOutputSpecArray
+      let tag = otag
 
-    // No attributes, content placeholder is 0
-    if (attrs === 0) {
-      return (child) => `<${tag}>${serializeChildrenToHTMLString(child)}</${tag}>`
-    }
+      // Handle namespaced tags like "http://www.w3.org/2000/svg svg"
+      const parts = tag.split(' ')
+      if (parts.length > 1) {
+        tag = `${parts[1]} xmlns="${parts[0]}"`
+      }
 
-    // Object attrs
-    if (typeof attrs === 'object') {
-      // attrs is actually an array (child element spec), not attributes
-      if (Array.isArray(attrs)) {
-        const renderChild = domOutputSpecToHTMLString(attrs as DOMOutputSpecArray)
-        if (children === undefined) {
-          return (child) => `<${tag}>${renderChild(child)}</${tag}>`
-        }
-        if (children === 0) {
-          return (child) => `<${tag}>${renderChild(child)}</${tag}>`
-        }
+      // Self-closing tag: no attrs
+      if (attrs === undefined) {
+        return () => `<${tag}/>`
+      }
+
+      // No attributes, content placeholder is 0
+      if (attrs === 0) {
         return (child) =>
-          `<${tag}>${renderChild(child)}${
-            [children]
+          `<${tag}>${serializeChildrenToHTMLString(child)}</${tag}>`
+      }
+
+      // Object attrs
+      if (typeof attrs === 'object') {
+        // attrs is actually an array (child element spec), not attributes
+        if (Array.isArray(attrs)) {
+          const renderChild = domOutputSpecToHTMLString(
+            attrs as DOMOutputSpecArray,
+          )
+          if (children === undefined) {
+            return (child) => `<${tag}>${renderChild(child)}</${tag}>`
+          }
+          if (children === 0) {
+            return (child) => `<${tag}>${renderChild(child)}</${tag}>`
+          }
+          return (child) =>
+            `<${tag}>${renderChild(child)}${[children]
               .concat(rest)
               .map((a) => domOutputSpecToHTMLString(a)(child))
-              .join('')
-          }</${tag}>`
-      }
-
-      // attrs is an attributes object
-      if (children === undefined) {
-        if (NON_SELF_CLOSING_TAGS.has(tag)) {
-          return () => `<${tag}${serializeAttrsToHTMLString(attrs)}></${tag}>`
+              .join('')}</${tag}>`
         }
-        return () => `<${tag}${serializeAttrsToHTMLString(attrs)}/>`
-      }
-      if (children === 0) {
-        return (child) => `<${tag}${serializeAttrsToHTMLString(attrs)}>${serializeChildrenToHTMLString(child)}</${tag}>`
-      }
 
-      return (child) =>
-        `<${tag}${serializeAttrsToHTMLString(attrs)}>${
-          [children]
+        // attrs is an attributes object
+        if (children === undefined) {
+          if (NON_SELF_CLOSING_TAGS.has(tag)) {
+            return () =>
+              `<${tag}${serializeAttrsToHTMLString(attrs, tag, options)}></${tag}>`
+          }
+          return () =>
+            `<${tag}${serializeAttrsToHTMLString(attrs, tag, options)}/>`
+        }
+        if (children === 0) {
+          return (child) =>
+            `<${tag}${serializeAttrsToHTMLString(attrs, tag, options)}>${serializeChildrenToHTMLString(child)}</${tag}>`
+        }
+
+        return (child) =>
+          `<${tag}${serializeAttrsToHTMLString(attrs, tag, options)}>${[
+            children,
+          ]
             .concat(rest)
             .map((a) => domOutputSpecToHTMLString(a)(child))
-            .join('')
-        }</${tag}>`
+            .join('')}</${tag}>`
+      }
     }
-  }
 
-  throw new Error(
-    '[prosekit error]: Unsupported DOMOutputSpec type. Check the `toDOM` method output or implement a custom nodeMapping.',
-    { cause: spec },
-  )
+    throw unsupportedDOMOutputSpecError(spec)
+  }
+  return domOutputSpecToHTMLString
 }
+
+export const domOutputSpecToHTMLString = createDOMOutputSpecToHTMLString()

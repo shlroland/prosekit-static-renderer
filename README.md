@@ -107,6 +107,48 @@ Every renderer accepts either:
 If both are provided, `schema` is used for parsing JSON and reading `toDOM`
 specs. If neither is provided, the renderer throws.
 
+## Security
+
+> [!IMPORTANT]
+> `createHTMLRenderer` and `renderToHTMLString` are serializers, not full HTML
+> sanitizers. The built-in DOMOutputSpec path escapes text and attribute values,
+> removes static event attributes such as `onclick`, and filters dangerous URL
+> protocols from known URL attributes. Custom `nodeMapping` and `markMapping`
+> output is treated as trusted output. If you render untrusted content or return
+> raw HTML from custom mappings, sanitize it in your application before passing
+> it to the renderer or before injecting the output into the page.
+
+The same static URL and event-attribute filtering is applied by the framework
+renderers. If you need interactive behavior, return framework components from
+`nodeMapping` or `markMapping` instead of relying on event attributes in schema
+`toDOM` specs.
+
+By default, URL attributes allow `http:`, `https:`, `mailto:`, `tel:`, hash
+URLs, and relative URLs. Dangerous protocols such as `javascript:` and `data:`
+are removed. Provide `sanitizeURL` to customize the policy:
+
+```ts
+import { createHTMLRenderer } from 'prosekit-static-renderer/html'
+
+const render = createHTMLRenderer({
+  extension,
+  sanitizeURL(url, context) {
+    if (url.startsWith('ipfs://')) {
+      return url
+    }
+
+    if (/^(https?:|mailto:|tel:|#|\/|\?|\.\.?\/)/i.test(url)) {
+      return url
+    }
+
+    return null
+  },
+})
+```
+
+Return `null` or `undefined` from `sanitizeURL` to remove the attribute. Return
+the original URL to keep it.
+
 ## Entry Points
 
 - `prosekit-static-renderer`
@@ -153,6 +195,12 @@ const markdown = render(content)
 
 const oneShotMarkdown = renderToMarkdown({ extension, content })
 ```
+
+Markdown rendering is a best-effort serialization target. It handles common
+ProseKit nodes and marks, including lists, tables, code fences, links, images,
+and math nodes, but Markdown is not a lossless representation of every
+ProseMirror schema. Use `nodeMapping` and `markMapping` for custom nodes,
+custom marks, or a specific Markdown dialect.
 
 ### React
 
@@ -212,13 +260,7 @@ that need framework-specific rendering, such as syntax highlighting or math:
 ```tsx
 import { createReactRenderer } from 'prosekit-static-renderer/react'
 
-function CodeBlock({
-  code,
-  language,
-}: {
-  code: string
-  language: string
-}) {
+function CodeBlock({ code, language }: { code: string; language: string }) {
   return (
     <pre data-language={language || undefined}>
       <code className={language ? `language-${language}` : undefined}>
@@ -253,14 +295,43 @@ renderer, or render a synchronous fallback.
 
 Use `unhandledNode` and `unhandledMark` when a schema type has no `toDOM` method and you want fallback behavior instead of an error.
 
+## DOMOutputSpec Support
+
+The default render path supports SSR-friendly ProseMirror `DOMOutputSpec`
+values: strings and array specs such as `['p', 0]` or `['a', { href }, 0]`.
+
+It does not support `toDOM()` methods that return real DOM nodes such as
+`HTMLElement` or `Text`. Static renderers run without a browser `document`, and
+real DOM nodes cannot be converted consistently to HTML, Markdown, React,
+Preact, Solid, Svelte, and Vue outputs. For those schema types, return a
+DOMOutputSpec array/string or provide `nodeMapping`/`markMapping` for the
+renderer target.
+
 ## Options
 
 All renderer functions accept the same schema and customization options:
 
 ```ts
-type StaticRendererCreateOptions =
+type StaticRendererCreateOptions = (
   | { extension: Extension; schema?: Schema }
   | { extension?: Extension; schema: Schema }
+) & {
+  sanitizeURL?: (
+    url: string,
+    context: {
+      tag: string
+      attr: string
+      target:
+        | 'html'
+        | 'markdown'
+        | 'preact'
+        | 'react'
+        | 'solid'
+        | 'svelte'
+        | 'vue'
+    },
+  ) => string | null | undefined
+}
 
 type StaticRendererOptions = StaticRendererCreateOptions & {
   content?: NodeJSON | ProseMirrorNode

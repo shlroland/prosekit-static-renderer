@@ -1,5 +1,11 @@
 import type { Extension, NodeJSON } from '@prosekit/core'
-import type { Attrs, DOMOutputSpec, Mark, ProseMirrorNode, Schema } from '@prosekit/pm/model'
+import type {
+  Attrs,
+  DOMOutputSpec,
+  Mark,
+  ProseMirrorNode,
+  Schema,
+} from '@prosekit/pm/model'
 
 /**
  * Options for providing the ProseMirror schema used by the static renderer.
@@ -31,10 +37,46 @@ export type StaticRendererSchemaOptions =
       schema: Schema
     }
 
+export interface URLSanitizerContext {
+  /**
+   * The HTML tag name that owns the URL attribute.
+   */
+  tag: string
+
+  /**
+   * The original attribute name from the DOMOutputSpec.
+   */
+  attr: string
+
+  /**
+   * The renderer target applying the URL policy.
+   */
+  target: 'html' | 'markdown' | 'preact' | 'react' | 'solid' | 'svelte' | 'vue'
+}
+
+/**
+ * Return a string to keep or rewrite the URL, or null/undefined to remove the
+ * attribute.
+ */
+export type URLSanitizer = (
+  url: string,
+  context: URLSanitizerContext,
+) => string | null | undefined
+
+export interface StaticRendererSecurityOptions {
+  /**
+   * Customize URL attribute filtering. The default sanitizer allows http,
+   * https, mailto, tel, hash URLs, and relative URLs. Dangerous protocols such
+   * as javascript: and data: are removed.
+   */
+  sanitizeURL?: URLSanitizer
+}
+
 /**
  * Options for creating a reusable static renderer.
  */
-export type StaticRendererCreateOptions = StaticRendererSchemaOptions
+export type StaticRendererCreateOptions = StaticRendererSchemaOptions &
+  StaticRendererSecurityOptions
 
 /**
  * Options for one-shot static rendering.
@@ -143,4 +185,6 @@ export type DOMOutputSpecArray =
 /**
  * A function that converts a ProseMirror DOMOutputSpec to a target element type.
  */
-export type DomOutputSpecToElement<T> = (spec: DOMOutputSpec) => (children?: T | T[]) => T
+export type DomOutputSpecToElement<T> = (
+  spec: DOMOutputSpec,
+) => (children?: T | T[]) => T
