@@ -1076,14 +1076,14 @@ describe('unhandledNode and unhandledMark', () => {
 
     const element = renderToReactElement({
       schema: unhandledSchema,
-      unhandledNode: ({ children }) => children,
+      unhandledNode: ({ children }) => children as any,
       content,
     })
     expect(isValidElement(element)).toBe(true)
 
     const vueElement = renderToVueElement({
       schema: unhandledSchema,
-      unhandledNode: ({ children }) => children,
+      unhandledNode: ({ children }) => children as any,
       content,
     })
     expect(vueElement).toBeTruthy()

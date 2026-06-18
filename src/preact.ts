@@ -3,15 +3,9 @@ import type { ProseMirrorNode } from '@prosekit/pm/model'
 import { Fragment, h, type VNode } from 'preact'
 
 import { createRenderer } from './renderer.ts'
-import {
-  filterStaticAttrs,
-  stringifyStaticAttrValue,
-  unsupportedDOMOutputSpecError,
-} from './shared/attrs.ts'
+import { createDOMOutputSpecParser, createMapAttrsToProps } from './shared/dom-output-spec.ts'
 import type {
   CustomMappingOptions,
-  DOMOutputSpecArray,
-  DomOutputSpecToElement,
   StaticRendererCreateOptions,
   StaticRendererOptions,
   StaticRendererSchemaOptions,
@@ -30,157 +24,7 @@ export type {
   URLSanitizerContext,
 }
 
-/**
- * Map HTML attribute names to Preact prop names.
- */
-function mapAttrsToProps(
-  attrs?: Record<string, any>,
-  key?: string,
-  tag = '',
-  sanitizeURL?: URLSanitizer,
-): Record<string, any> {
-  const filteredAttrs = filterStaticAttrs(attrs, {
-    tag,
-    target: 'preact',
-    sanitizeURL,
-  })
-
-  if (Object.keys(filteredAttrs).length === 0) {
-    return key !== undefined ? { key } : {}
-  }
-
-  const result: Record<string, any> = key !== undefined ? { key } : {}
-
-  for (const [name, value] of Object.entries(filteredAttrs)) {
-    if (value == null) continue
-
-    if (name === 'class') {
-      result.class = stringifyStaticAttrValue(value)
-    } else if (name === 'style' && typeof value === 'string') {
-      result.style = value
-    } else {
-      result[name] = stringifyStaticAttrValue(value)
-    }
-  }
-
-  return result
-}
-
-/**
- * Convert a ProseMirror DOMOutputSpec to a Preact VNode renderer.
- */
-function createDOMOutputSpecToPreactElement(
-  options: { sanitizeURL?: URLSanitizer } = {},
-): DomOutputSpecToElement<VNode<any>> {
-  const domOutputSpecToPreactElement: DomOutputSpecToElement<VNode<any>> = (
-    spec,
-  ) => {
-    if (typeof spec === 'string') {
-      return () => spec
-    }
-
-    if (typeof spec === 'object' && spec && 'length' in spec) {
-      let [otag, attrs, children, ...rest] = spec as DOMOutputSpecArray
-      let tag = otag
-
-      // Handle namespaced tags
-      const parts = tag.split(' ')
-      if (parts.length > 1) {
-        tag = parts[1]
-        if (attrs === undefined) {
-          attrs = { xmlns: parts[0] }
-        } else if (attrs === 0) {
-          attrs = { xmlns: parts[0] }
-          children = 0
-        } else if (typeof attrs === 'object' && !Array.isArray(attrs)) {
-          attrs = { ...attrs, xmlns: parts[0] }
-        }
-      }
-
-      // Self-closing tag
-      if (attrs === undefined) {
-        return () =>
-          h(
-            tag,
-            mapAttrsToProps(undefined, undefined, tag, options.sanitizeURL),
-          )
-      }
-
-      // No attributes, content placeholder is 0
-      if (attrs === 0) {
-        return (child) =>
-          h(
-            tag,
-            mapAttrsToProps(undefined, undefined, tag, options.sanitizeURL),
-            child,
-          )
-      }
-
-      // Object attrs
-      if (typeof attrs === 'object') {
-        // attrs is actually an array (child element spec)
-        if (Array.isArray(attrs)) {
-          const renderChild = domOutputSpecToPreactElement(
-            attrs as DOMOutputSpecArray,
-          )
-
-          if (children === undefined) {
-            return (child) =>
-              h(
-                tag,
-                mapAttrsToProps(undefined, undefined, tag, options.sanitizeURL),
-                renderChild(child),
-              )
-          }
-          if (children === 0) {
-            return (child) =>
-              h(
-                tag,
-                mapAttrsToProps(undefined, undefined, tag, options.sanitizeURL),
-                renderChild(child),
-              )
-          }
-          return (child) =>
-            h(
-              tag,
-              mapAttrsToProps(undefined, undefined, tag, options.sanitizeURL),
-              [
-                renderChild(child),
-                ...[children]
-                  .concat(rest)
-                  .map((s) => domOutputSpecToPreactElement(s)(child)),
-              ],
-            )
-        }
-
-        // attrs is an attributes object
-        if (children === undefined) {
-          return () =>
-            h(tag, mapAttrsToProps(attrs, undefined, tag, options.sanitizeURL))
-        }
-        if (children === 0) {
-          return (child) =>
-            h(
-              tag,
-              mapAttrsToProps(attrs, undefined, tag, options.sanitizeURL),
-              child,
-            )
-        }
-        return (child) =>
-          h(
-            tag,
-            mapAttrsToProps(attrs, undefined, tag, options.sanitizeURL),
-            [children]
-              .concat(rest)
-              .map((s) => domOutputSpecToPreactElement(s)(child)),
-          )
-      }
-    }
-
-    throw unsupportedDOMOutputSpecError(spec)
-  }
-  return domOutputSpecToPreactElement
-}
+const mapAttrsToProps = createMapAttrsToProps('preact')
 
 /**
  * Create a reusable renderer function that converts ProseMirror document JSON
@@ -202,6 +46,13 @@ function createDOMOutputSpecToPreactElement(
  *     { type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] },
  *   ],
  * })
+ *
+ * const vnode2 = render({
+ *   type: 'doc',
+ *   content: [
+ *     { type: 'paragraph', content: [{ type: 'text', text: 'World' }] },
+ *   ],
+ * })
  * ```
  */
 export function createPreactRenderer(
@@ -209,9 +60,11 @@ export function createPreactRenderer(
 ): (content: NodeJSON | ProseMirrorNode) => VNode {
   return createRenderer<VNode>({
     ...options,
-    domOutputSpecToElement: createDOMOutputSpecToPreactElement({
-      sanitizeURL: options.sanitizeURL,
-    }),
+    domOutputSpecToElement: createDOMOutputSpecParser<VNode<any>>(
+      (tag, props, ...children) => h(tag, props, ...children),
+      mapAttrsToProps,
+      { sanitizeURL: options.sanitizeURL },
+    ),
     mapDefinedTypes: {
       doc: ({ children }) => h(Fragment, null, children),
       text: ({ node }) => h(Fragment, null, node.text),
